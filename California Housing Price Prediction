@@ -1,0 +1,276 @@
+ %% [markdown]
+## California Housing Price Prediction.
+
+# %% [markdown]
+This is my second project as a Data Scientist and the very first project in ``Machine Learning``. 
+I have tried my to do justice to this dataset by appyling all the knowledge I have received so far.
+Any suggestions comments are most welcomed!
+
+ %% [markdown]
+Domain - Finance and Housing
+
+Background :
+The US Census Bureau has published California Census Data which has 10 types of metrics such as the population, median income, median housing price, and so on for each block group in California. The dataset also serves as an input for project scoping and tries to specify the functional and nonfunctional requirements for it.
+
+Problem Objective :
+The project aims at building a model of housing prices to predict median house values in California using the provided dataset. This model should learn from the data and be able to predict the median housing price in any district, given all the other metrics.
+
+Districts or block groups are the smallest geographical units for which the US Census Bureau
+publishes sample data (a block group typically has a population of 600 to 3,000 people). There are 20,640 districts in the project dataset.
+
+%% [markdown]
+Field	- Description
+1. longitude : Longitude value for the block in California, USA     
+2. latitude : Latitude value for the block in California, USA
+3. housing_median_age : Median age of the house in the block
+4. total_rooms : Count of the total number of rooms (excluding bedrooms) in all houses in the block
+5. total_bedrooms : Count of the total number of bedrooms in all houses in the block
+6. population : Count of the total number of population in the block
+7. households : Count of the total number of households in the block
+8. median_income : Median of the total household income of all the houses in the block
+9. ocean_proximity : Type of the landscape of the block [ Unique Values : 'NEAR BAY', '<1H OCEAN', 'INLAND', 'NEAR OCEAN', 'ISLAND'  ]
+10. median_house_value : Median of the household prices of all the houses in the block
+ 
+Dataset Size : 20640 rows x 10 columns
+
+ %% [markdown]
+1.Import libraries
+
+%% [code]
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+ %% [code]
+# Reading the data file
+housing = pd.read_csv("../input/california-housing-prices/housing.csv")
+
+ %% [markdown]
+2. Perform Exploratory Data Analysis
+
+# Though EDA should be performed at all the levels but starting at the initial steps can fetch a lot of insights, like: knowing NAN values, getting information on Numeric features & Categorical Features which a big role in ``Machine Learning``
+
+%% [code]
+housing.shape
+
+%% [code]
+# describe function gives a summary like mean, quartiles, median, std, count, etc for the numeric columns
+housing.describe()
+
+ %% [code]
+# info functions helps us to understand the data type of all the columns
+housing.info()
+
+ %% [code]
+# lets check if there are missing values in the data
+housing.isnull().sum()
+
+ %% [markdown]
+### As we can see only ``total_bedrooms`` column has 207 NAN values, lets treat it.
+### There are 2 ways to treat NAN
+
+### 1. We can delete those records which are missing (Not Recommended)
+### 2. or we can fill those columns using the mean or median - which in this case is a pretty much easier.
+ *But what should we be using ``Mean`` or ``Median``*
+### So to decide this we need to first check the outliers.
+
+ %% [code]
+plt.figure(figsize=(20,5))
+plt.hist(housing[housing["total_bedrooms"].notnull()]["total_bedrooms"],bins=30,color="purple")
+
+#histogram of totalbedrooms
+#data has some outliers..??
+
+(housing["total_bedrooms"]>4000).sum()
+plt.title("Historgram")
+plt.xlabel("Total Bedrooms")
+plt.ylabel("Frequency")
+
+%% [markdown]
+### We can clearly see there are some outliers in the column, but let check with the help of box plot once more.
+
+%% [code]
+plt.figure(figsize=(15,5))
+sns.boxplot(y="total_bedrooms",data=housing, orient="h", palette="plasma")
+plt.plot
+
+%% [markdown]
+### As we can see there are a lot of outliers, so to fill them we should be using ``Median`` instead of ``Mean``, as the mean would vary a lot because of outliers and can affect the accuracy of our model
+
+%% [markdown]
+### Filling missing values :  there are 'n' number of ways to do this... I find this the simplest way
+
+ %% [code]
+housing['total_bedrooms'] = housing['total_bedrooms'].fillna((housing['total_bedrooms'].median()))
+
+ %% [code]
+# Lets check if the missing values have been filled
+housing.isnull().sum()
+
+ %% [markdown]
+### The very first step is achieved. 
+#### Lets do a little more EDA before we proceed further.
+
+ %% [code]
+# Lets plot and see what our dependent variable ie; "Y" column - ("median house price") looks like
+# Histogram would be the best way to do it
+
+plt.figure(figsize=(20,5))
+sns.set_color_codes(palette="bright")
+sns.distplot(housing['median_house_value'],color='g')
+
+%% [markdown]
+### We can see there is sudden increase in the median house value at >= 5,00,000, & this could be outliers. We should definately be removing them.
+
+%% [code]
+housing[housing["median_house_value"]>300000]["median_house_value"].value_counts().head(10)
+
+%% [code]
+housing = housing.loc[housing["median_house_value"]<500001,:]
+
+%% [code]
+plt.figure(figsize=(20,5))
+sns.set_color_codes(palette="bright")
+sns.distplot(housing["median_house_value"], color="r")
+
+%% [markdown]
+### Lets find out if there is any more awkward data
+
+%% [code]
+#The bins parameter is used to customize the number of bins shown on the plots.
+housing.hist(bins=50,figsize=(20,15))
+
+%% [markdown]
+### Since we have some geographical data, lets see if get some meaning insights from it..
+
+ %% [code]
+plt.figure(figsize=(20,10))
+plt.scatter(housing["longitude"],housing["latitude"],c=housing["median_house_value"],
+            s=housing["population"]/50, alpha=0.1, cmap="Oranges")
+plt.colorbar()
+plt.xlabel("Longitude")
+plt.ylabel("Latitude")
+plt.title("House price based of geographical co-ordinates")
+
+ %% [markdown]
+### We can see there are some high density areas in california, so we can say the price of house is a bit realted to location as well. 
+### `` Earlier when I saw the data, I thought longitude & latitude would not be weak predictors
+### but after plotting this, we can conclude even they are useful features.``
+### So never judge it by visually seeing the data just in the first time.
+
+%% [markdown]
+### Lets us check if the feature "median income" would have a high impact in prediction or not.? As by our common sense we can say that income would be a strong predictor but lets plot it and see...
+
+%% [code]
+plt.figure(figsize=(12,7))
+plt.scatter("median_income","median_house_value",data=housing,alpha=0.1, color="#808000")
+plt.xlabel("Median income")
+plt.ylabel("Median house value")
+plt.title("Relation btw - Median income and Median House value")
+
+%% [markdown]
+### Here we can clearly see even without the line of best fit that there is a strong Linear relationship between the ``Income`` & ``Price``
+
+# %% [markdown]
+### Before we split our data, we can also see that the feature ``total_rooms`` has no significance, as this talks about the rooms in the entire district. 
+### Instead, we should find out, how many rooms are there per household, that would be more informative for our analysis...
+
+%% [code]
+housing["rooms_household"] = housing.total_rooms / housing.households
+
+%% [code]
+# now we can remove this feature
+housing.drop("total_rooms", axis=1, inplace=True)
+
+%% [code]
+housing.head(10)
+
+%% [markdown]
+### We have one categorical column in the data set, lets see if we should keep this column or remove it
+
+%% [code]
+# Barplot of categorical column
+plt.figure(figsize=(10,6))
+sns.countplot(data=housing,x='ocean_proximity', palette = "YlOrBr_r")
+
+%% [markdown]
+### It is very definate we should be keeping this feautre, but since this is a categorical feature, we should perform preprocessing on it to convert it into numerical data.
+
+%% [markdown]
+### 3. Performing Linear Regression
+
+%% [code]
+# to conviently split the data into x & y part, I am rearranging the output column and bring it in the last
+
+housing=housing[["longitude", "latitude", "housing_median_age", "total_bedrooms", "population", 
+                 "households", "median_income", "ocean_proximity", "rooms_household", "median_house_value"]]
+
+%% [code]
+housing.head(4)
+
+%% [code]
+# Spliting the data
+x = housing.iloc[:,0:9].values
+y = housing.iloc[:,9].values
+
+%% [markdown]
+### Now is the time we convert the categorical column to numeric, by using scikit learn library function : Label encode & One hot encoding.
+
+%% [code]
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+label_encode_x = LabelEncoder()
+x[:, 7] = label_encode_x.fit_transform(x[:, 7])
+
+%% [code]
+onehot = OneHotEncoder(categories="auto")
+x = onehot.fit_transform(x).toarray()
+
+%% [code]
+# Spliting the train & test data set 
+from sklearn.model_selection import train_test_split
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = 0.2, random_state = 123)
+
+%% [markdown]
+### Feature scaling / Normalization:
+### It is very important to do feature scaling because machine learning algorithm does not peform well if the attributes are on different scale, so with this function we scale all the attribute on the same scale of 0 to 1
+
+%% [code]
+from sklearn.preprocessing import StandardScaler
+scale  = StandardScaler()
+x_train = scale.fit_transform(x_train)
+x_test = scale.transform(x_test)
+
+%% [code]
+from sklearn.linear_model import LinearRegression
+lin_reg = LinearRegression()
+lin_reg.fit(x_train, y_train)
+
+%% [code]
+y_pred = lin_reg.predict(x_test)
+
+from sklearn import metrics
+rmse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
+rmse
+# output rmse = 603.1730144062759
+
+%% [code]
+score = lin_reg.score(x_test, y_test)
+# Output of score = 0.6524213016981026
+
+%% [markdown]
+### Here we can say that our model is 65.2% accurate. But this was with only 1 algorithm we tried, we can also try 
+and do it with other algorithms like MLR, PLR or even with KNN, SVM,etc
+
+%% [code]
+test = pd.DataFrame({'Predicted':y_pred,'Actual':y_test})
+fig= plt.figure(figsize=(16,8))
+test = test.reset_index()
+test = test.drop(['index'],axis=1)
+plt.plot(test[:80])
+plt.legend(['Actual','Predicted'])
+sns.jointplot(x='Actual',y='Predicted',data=test,kind='reg',color="grey")
+
+% [markdown]
+### Thank you all for reading...
+### If you found this helpful an upvote would be really appreciated...
