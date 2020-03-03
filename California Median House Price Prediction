@@ -1,0 +1,127 @@
+California Housing Price Prediction
+
+# Importing Libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Reading the data file
+housing = pd.read_excel("california_housing.xlsx")
+
+# Printing first few rows of data
+housing.head(4)
+
+# Using info() to understand the data types of each column
+housing.info()
+
+# Checking missing values
+housing.isnull().sum()
+
+As we can see only total bedrooms column has 207 NAN values, let’s treat it. There are 2 ways to treat NAN:
+1.	We can delete those records which are missing - (Not recommended here as they can be easily treated)
+2.	or we can fill those columns using the mean or median
+But what should we be using Mean or Median So to decide this we need to first check the outliers.
+We will use Mean as per our description
+
+#histogram of total_bedrooms
+plt.figure(figsize=(20,5))
+plt.hist(housing[housing["total_bedrooms"].notnull()]["total_bedrooms"],bins=30,color="purple")
+(housing["total_bedrooms"]>4000).sum()
+plt.title("Historgram")
+plt.xlabel("Total Bedrooms")
+plt.ylabel("Frequency")
+
+# boxplot of total_bedrooms
+plt.figure(figsize=(15,5))
+sns.boxplot(y="total_bedrooms",data=housing, orient="h", palette="plasma")
+plt.plot 	
+
+We can confirm from the box plot above there are some outliers in the data.
+So to fill them we should ideally be using Median instead of Mean
+But as per our description we would go ahead and use Mean to fill the missing values
+
+# Filling missing values with mean
+housing['total_bedrooms'] = housing['total_bedrooms'].fillna((housing['total_bedrooms'].mean()))
+
+Before we split our data, we can also see that the feature total_rooms has no significance, as this talk about the rooms in the entire district.	 Instead, we should find out, how many rooms are there per household that would be more informative for our analysis...
+
+
+# Creating another column which talks about ``Rooms per houshold``
+housing["rooms_household"] = housing.total_rooms / housing.households
+
+# Dropping ``total_rooms`` feature
+housing.drop("total_rooms", axis=1, inplace=True)
+
+# to conviently split the data into x & y part, I am rearranging the output column and bring it in the last
+housing = housing[["longitude", "latitude", "housing_median_age", "total_bedrooms", "population", 
+"households", "median_income", "ocean_proximity", "rooms_household",            "median_house_value"]]
+
+# Spliting the data
+x = housing.iloc[:,0:9].values
+y = housing.iloc[:,9].values
+
+# Converting categorical column “ocean proximity” to numeric
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+label_encode_x = LabelEncoder()
+x[:, 7] = label_encode_x.fit_transform(x[:, 7])
+
+onehot = OneHotEncoder(categorical_features=[7])
+x = onehot.fit_transform(x).toarray()
+
+# Spliting the train & test data set 
+from sklearn.model_selection import train_test_split
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = 0.2, random_state = 123)
+
+Feature scaling / Normalization:
+It is very important to do feature scaling because machine learning algorithm does not perform well if the attributes are on different scale, so with this function we scale all the attribute on the same scale of 0 to 1
+
+from sklearn.preprocessing import StandardScaler
+scale  = StandardScaler()
+x_train = scale.fit_transform(x_train)
+x_test = scale.transform(x_test)
+
+# Preparing our model
+from sklearn.linear_model import LinearRegression
+lin_reg = LinearRegression()
+lin_reg.fit(x_train, y_train)
+
+# For prediction
+y_pred = lin_reg.predict(x_test)
+
+# root mean squared error (RMSE) from Linear Regression
+from sklearn import metrics
+rmse = np.sqrt(metrics.mean_squared_error(y_test, y_pred))
+rmse
+[OUT]: 68751.34312554203
+
+score = lin_reg.score(x_test, y_test)
+score
+[OUT]: 0.6445558060930489
+
+# Checking relation between Median income feature and Median House
+plt.figure(figsize=(10,8))
+plt.scatter("median_income","median_house_value",data=housing,alpha=0.1, color="#808000")
+plt.xlabel("Median income")
+plt.ylabel("Median house value")
+plt.title("Relation btw - Median income and Median House value")
+
+# Extracting "Median Income" feature from the x_train & x_test
+x_train_1 = pd.DataFrame(x_train)
+x_test_1 = pd.DataFrame(x_test)
+x_train_1 = x_train_1.iloc[:,6].values
+x_test_1 = x_test_1.iloc[:,6].values
+
+Sim_lin_reg = LinearRegression()
+Sim_lin_reg.fit(x_train, y_train)
+
+y_pred_1 = Sim_lin_reg.predict(x_test_1)
+
+# Plotting Actual vs. Predicted
+test = pd.DataFrame({'Predicted':y_pred,'Actual':y_test})
+fig= plt.figure(figsize=(10,3))
+test = test.reset_index()
+test = test.drop(['index'],axis=1)
+plt.plot(test[:80])
+plt.legend(['Actual','Predicted'])
+sns.jointplot(x='Actual',y='Predicted',data=test,kind='reg',color="grey")
